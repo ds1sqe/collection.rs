@@ -5,10 +5,12 @@ use std::{
     alloc::Layout,
     isize,
     marker::PhantomData,
-    mem::{self, ManuallyDrop},
+    mem,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
+
+use crate::iter::RawIter;
 
 struct RawVec<T> {
     ptr: NonNull<T>,
@@ -166,41 +168,24 @@ impl<T> DerefMut for Vec<T> {
 
 pub struct _IntoIter<T> {
     buf: RawVec<T>,
-    start: *const T,
-    end: *const T,
+    iter: RawIter<T>,
 }
 
 impl<T> Iterator for _IntoIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
-        if self.start == self.end {
-            None
-        } else {
-            unsafe {
-                let item = ptr::read(self.start);
-                self.start = self.start.offset(1);
-                Some(item)
-            }
-        }
+        self.iter.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = (self.end as usize - self.start as usize) / mem::size_of::<T>();
-        (len, Some(len))
+        self.iter.size_hint()
     }
 }
 
 impl<T> DoubleEndedIterator for _IntoIter<T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.start == self.end {
-            None
-        } else {
-            unsafe {
-                self.end = self.end.offset(-1);
-                Some(ptr::read(self.end))
-            }
-        }
+        self.iter.next_back()
     }
 }
 
@@ -216,27 +201,46 @@ impl<T> IntoIterator for Vec<T> {
 
     fn into_iter(self) -> _IntoIter<T> {
         unsafe {
+            let iter = RawIter::new(&self);
             let buf = ptr::read(&self.buf);
-            let len = self.len;
             mem::forget(self);
 
-            _IntoIter {
-                start: buf.ptr.as_ptr(),
-                end: if buf.cap == 0 {
-                    buf.ptr.as_ptr()
-                } else {
-                    buf.ptr.as_ptr().add(len)
-                },
-                buf,
-            }
+            _IntoIter { buf, iter }
         }
     }
 }
 
-struct _Drain<'a, T: 'a> {
+pub struct _Drain<'a, T: 'a> {
     vec: PhantomData<&'a mut Vec<T>>,
-    start: *const T,
-    end: *const T,
+    iter: RawIter<T>,
 }
 
-impl<'a, T> Iterator for _Drain<'a, T> {}
+impl<'a, T> Iterator for _Drain<'a, T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for _Drain<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<T> Vec<T> {
+    pub fn drain(&mut self) -> _Drain<T> {
+        unsafe {
+            let iter = RawIter::new(&self);
+            self.len = 0;
+
+            _Drain {
+                iter,
+                vec: PhantomData,
+            }
+        }
+    }
+}
