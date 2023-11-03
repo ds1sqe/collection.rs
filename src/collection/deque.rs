@@ -128,7 +128,7 @@ impl<T> Deque<T> {
     /// Copyies a contiguous memory block (len long) from src to dst
     unsafe fn copy_nooverlap(&mut self, src: usize, dst: usize, len: usize) {
         unsafe {
-            ptr::copy_nonoverlapping(self.ptr().add(src), self.ptr().add(src), len);
+            ptr::copy_nonoverlapping(self.ptr().add(src), self.ptr().add(dst), len);
         }
     }
 
