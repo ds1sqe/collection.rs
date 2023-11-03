@@ -60,13 +60,13 @@ impl<T> Deque<T> {
         //
         //        L H
         //   [o o o o o o o o ]
-        //          H           L
-        // B [. . . o o o o o o o . . . . . . ]
+        //          H         L
+        // B [. . . o o o o o o o o . . . . . ]
         //
         //              L H
         //   [o o o o o o o o ]
-        //            L                   H
-        // C [o o o o o . . . . . . . . . o o ]
+        //              L                 H
+        // C [o o o o o o . . . . . . .   o o ]
 
         if self.head <= old_cap - self.len {
             // Case A ) No op
@@ -121,7 +121,7 @@ impl<T> Deque<T> {
     /// Copyies a contiguous memory block (len long) from src to dst
     unsafe fn copy(&mut self, src: usize, dst: usize, len: usize) {
         unsafe {
-            ptr::copy(self.ptr().add(src), self.ptr().add(src), len);
+            ptr::copy(self.ptr().add(src), self.ptr().add(dst), len);
         }
     }
 
