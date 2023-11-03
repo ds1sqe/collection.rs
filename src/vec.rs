@@ -5,7 +5,6 @@ use std::{
     alloc::Layout,
     marker::PhantomData,
     mem,
-    ops::Index,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
