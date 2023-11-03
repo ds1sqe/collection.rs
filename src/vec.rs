@@ -3,15 +3,16 @@
 use std::{
     alloc,
     alloc::Layout,
-    isize,
     marker::PhantomData,
     mem,
+    ops::Index,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
 
 use crate::iter::RawIter;
 
+#[derive(Debug)]
 struct RawVec<T> {
     ptr: NonNull<T>,
     cap: usize,
@@ -21,16 +22,31 @@ unsafe impl<T: Sync> Sync for RawVec<T> {}
 
 impl<T> RawVec<T> {
     fn new() -> Self {
-        assert!(mem::size_of::<T>() != 0, "Cannot handle Zero sized types");
+        let cap = if mem::size_of::<T>() == 0 {
+            // if T is zero sized type
+            usize::MAX
+        } else {
+            // else
+            0
+        };
+
         RawVec {
             ptr: NonNull::dangling(),
-            cap: 0,
+            cap,
         }
     }
-    fn grow(&mut self) {
-        let new_cap = if self.cap == 0 { 1 } else { 2 * self.cap };
 
-        let new_layout = Layout::array::<T>(new_cap).unwrap();
+    fn grow(&mut self) {
+        // since when size of T is 0, capacity was setted to usize::MAX
+        assert!(mem::size_of::<T>() != 0, "capacity overflow");
+
+        let (new_cap, new_layout) = if self.cap == 0 {
+            (1, Layout::array::<T>(1).unwrap())
+        } else {
+            let new_cap = 2 * self.cap;
+            let new_layout = Layout::array::<T>(new_cap).unwrap();
+            (new_cap, new_layout)
+        };
 
         assert!(
             new_layout.size() <= isize::MAX as usize,
@@ -38,8 +54,10 @@ impl<T> RawVec<T> {
         );
 
         let new_ptr = if self.cap == 0 {
+            // allocate layout with global allocator
             unsafe { alloc::alloc(new_layout) }
         } else {
+            // reallocate layout with global allocator
             let old_layout = Layout::array::<T>(self.cap).unwrap();
             let old_ptr = self.ptr.as_ptr() as *mut u8;
             unsafe { alloc::realloc(old_ptr, old_layout, new_layout.size()) }
@@ -54,15 +72,19 @@ impl<T> RawVec<T> {
 }
 impl<T> Drop for RawVec<T> {
     fn drop(&mut self) {
-        if self.cap != 0 {
-            let layout = Layout::array::<T>(self.cap).unwrap();
+        let is_zst = mem::size_of::<T>() == 0;
+        if self.cap != 0 && !is_zst {
             unsafe {
-                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
+                alloc::dealloc(
+                    self.ptr.as_ptr() as *mut u8,
+                    Layout::array::<T>(self.cap).unwrap(),
+                );
             }
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Vec<T> {
     buf: RawVec<T>,
     len: usize,
@@ -235,6 +257,7 @@ impl<T> Vec<T> {
     pub fn drain(&mut self) -> _Drain<T> {
         unsafe {
             let iter = RawIter::new(&self);
+            // preventing reading into freed memory
             self.len = 0;
 
             _Drain {
@@ -243,4 +266,106 @@ impl<T> Vec<T> {
             }
         }
     }
+}
+
+#[test]
+fn vec_test_push1() {
+    println!(">>Test Start vec_test_push1");
+    let mut vec = Vec::new();
+    println!("Vec>> {:?}", vec);
+    for i in 0..10000 {
+        vec.push(i)
+    }
+    println!("Vec>> {:?}", vec);
+    for i in vec.into_iter() {
+        if i % 10 == 9 {
+            println!("{}", i);
+        } else {
+            print!("{} ", i);
+        }
+    }
+    println!(">>Test End vec_test_push1");
+}
+
+#[test]
+fn vec_test_drain() {
+    println!(">>Test Start vec_test_drain");
+    let mut vec = Vec::new();
+    println!("Vec>> {:?}", vec);
+    for i in 0..10000 {
+        vec.push(i)
+    }
+    println!("Vec>> {:?}", vec);
+    for i in vec.drain() {
+        if i % 10 == 9 {
+            println!("{}", i);
+        } else {
+            print!("{} ", i);
+        }
+    }
+    println!(">>Test End vec_test_drain");
+}
+
+#[test]
+fn vec_test_reverse() {
+    println!(">>Test Start vec_test_reverse");
+    let mut vec = Vec::new();
+    println!("Vec>> {:?}", vec);
+    for i in 0..10000 {
+        vec.push(i)
+    }
+    println!("Vec>> {:?}", vec);
+    for i in vec.into_iter().rev() {
+        if i % 10 == 9 {
+            println!("{}", i);
+        } else {
+            print!("{} ", i);
+        }
+    }
+    println!(">>Test End vec_test_reverse");
+}
+
+#[test]
+fn vec_test_index() {
+    println!(">>Test Start vec_test_index");
+    let mut vec = Vec::new();
+    println!("Vec>> {:?}", vec);
+    for i in 0..10000 {
+        vec.push(i)
+    }
+    println!("Vec>> {:?}", vec);
+    for i in 0..10000 {
+        let t = vec[i];
+        if t % 10 == 9 {
+            println!("{}", t);
+        } else {
+            print!("{} ", t);
+        }
+    }
+    println!(">>Test End vec_test_index");
+}
+
+#[test]
+fn vec_test_zst() {
+    println!(">>Test Start vec_test_zst");
+    let mut vec = Vec::new();
+
+    #[derive(Debug, Copy, Clone)]
+    struct ZeroSized;
+
+    println!("Vec>> {:?}", vec);
+    for _ in 0..10000 {
+        vec.push(ZeroSized)
+    }
+    println!("Vec>> {:?}", vec);
+
+    for i in 0..10000 {
+        let t = vec[i];
+        if i % 10 == 9 {
+            println!("{:?}", t);
+        } else {
+            print!("{:?} ", t);
+        }
+    }
+    println!(">>Test End vec_test_zst");
 }
