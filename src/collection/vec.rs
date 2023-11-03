@@ -9,7 +9,7 @@ use std::{
     ptr::{self, NonNull},
 };
 
-use crate::iter::RawIter;
+use super::iter::RawIter;
 
 #[derive(Debug)]
 struct RawVec<T> {
