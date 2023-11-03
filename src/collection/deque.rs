@@ -309,11 +309,25 @@ impl<'a, T> Iterator for Iter<'a, T> {
 }
 
 #[test]
-fn test_deque_iter() {
+fn test_deque_push_front() {
     let mut dq = Deque::new();
     println!("{:?}", dq);
     for i in 1..10 {
         dq.push_front(i);
+        println!("{:?}", dq);
+    }
+
+    for x in dq.iter() {
+        println!("{x}")
+    }
+}
+
+#[test]
+fn test_deque_push_back() {
+    let mut dq = Deque::new();
+    println!("{:?}", dq);
+    for i in 1..10 {
+        dq.push_back(i);
         println!("{:?}", dq);
     }
 
