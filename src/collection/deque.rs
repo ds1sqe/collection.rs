@@ -121,7 +121,7 @@ impl<T> Deque<T> {
     /// Copyies a contiguous memory block (len long) from src to dst
     unsafe fn copy(&mut self, src: usize, dst: usize, len: usize) {
         unsafe {
-            ptr::copy(self.ptr().add(src), self.ptr().add(src), len);
+            ptr::copy(self.ptr().add(src), self.ptr().add(dst), len);
         }
     }
 
