@@ -1,5 +1,6 @@
 use std::{
     collections::hash_map::DefaultHasher,
+    fmt,
     hash::{Hash, Hasher},
 };
 
@@ -152,6 +153,44 @@ where
     }
 }
 
+impl<K, V> fmt::Debug for HashMap<K, V>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "HashMap entities:{}\n", &self.len).unwrap();
+
+        for (pos, node) in self.arr.iter().enumerate() {
+            if node.is_none() {
+                write!(f, "[arr@{pos}]: No Exists\n").unwrap();
+            } else {
+                write!(f, "[arr@{pos}]:\n").unwrap();
+                let node = node.as_ref().unwrap();
+                write!(f, "{:?}:{:?}\n", node.key, node.value).unwrap();
+
+                let mut padding = 1;
+                let mut cur_node = node.next.as_ref();
+                while cur_node.is_some() {
+                    for _ in 0..padding {
+                        write!(f, ">").unwrap();
+                    }
+                    write!(
+                        f,
+                        "{:?}:{:?}\n",
+                        cur_node.unwrap().key,
+                        cur_node.unwrap().value
+                    )
+                    .unwrap();
+                    cur_node = cur_node.unwrap().next.as_ref();
+                    padding += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<K, V> HashNode<K, V> {
     pub fn new(key: K, value: V) -> HashNode<K, V> {
         HashNode {
@@ -159,6 +198,20 @@ impl<K, V> HashNode<K, V> {
             value,
             next: None,
         }
+    }
+}
+
+impl<K, V> fmt::Debug for HashNode<K, V>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HashNode")
+            .field("key", &self.key)
+            .field("value", &self.value)
+            .field("next", &self.next)
+            .finish()
     }
 }
 
@@ -193,4 +246,20 @@ fn hashmap_test_remove() {
             hm.get(i).unwrap_or("No Exists".to_string())
         );
     }
+}
+
+#[test]
+fn hashmap_test_debug() {
+    let mut hm = HashMap::new();
+    for i in 0..100 {
+        hm.put(i, (i * 10 + 1).to_string());
+    }
+
+    for i in 0..100 {
+        if i == 42 || i % 10 == 0 {
+            hm.remove(i);
+        }
+    }
+
+    println!("{:?}", hm);
 }
