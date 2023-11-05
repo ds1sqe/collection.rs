@@ -107,7 +107,49 @@ where
         }
     }
 
-    // pub fn remove(&self, key: K) -> Option<V> {}
+    fn search_and_remove(&mut self, key: K, idx: usize) -> Option<V> {
+        let mut cur_node = self.arr[idx].as_mut().unwrap();
+
+        if cur_node.key == key {
+            let value = cur_node.value.clone();
+
+            if let Some(next_node) = cur_node.next.take() {
+                self.arr[idx] = Some(*next_node);
+            } else {
+                self.arr[idx] = None;
+            }
+
+            self.len -= 1;
+            return Some(value);
+        } else {
+            while cur_node.next.is_some() {
+                let next = cur_node.next.as_mut().unwrap();
+                if next.key == key {
+                    let value = next.value.clone();
+
+                    if let Some(next_of_next) = next.next.take() {
+                        cur_node.next = Some(next_of_next);
+                    } else {
+                        cur_node.next = None;
+                    }
+
+                    self.len -= 1;
+                    return Some(value);
+                } else {
+                    cur_node = cur_node.next.as_mut().unwrap();
+                }
+            }
+            return None;
+        }
+    }
+
+    pub fn remove(&mut self, key: K) -> Option<V> {
+        let idx = __hash_key(key.clone());
+        match &self.arr[idx] {
+            Some(_) => self.search_and_remove(key, idx),
+            None => None,
+        }
+    }
 }
 
 impl<K, V> HashNode<K, V> {
@@ -129,5 +171,26 @@ fn hashmap_test_search() {
 
     for i in 0..100 {
         println!("(k,v):({i},{})", hm.get(i).unwrap());
+    }
+}
+
+#[test]
+fn hashmap_test_remove() {
+    let mut hm = HashMap::new();
+    for i in 0..100 {
+        hm.put(i, (i * 10 + 1).to_string());
+    }
+
+    for i in 0..100 {
+        if i == 42 || i % 10 == 0 {
+            hm.remove(i);
+        }
+    }
+
+    for i in 0..100 {
+        println!(
+            "(k,v):({i},{})",
+            hm.get(i).unwrap_or("No Exists".to_string())
+        );
     }
 }
