@@ -25,6 +25,28 @@ impl<T> RawVec<T> {
         }
     }
 
+    pub fn with_capacity(cap: usize) -> Self {
+        let mut real_cap = 1;
+        while real_cap < cap {
+            real_cap *= 2;
+        }
+
+        let layout = Layout::array::<T>(real_cap).unwrap();
+        assert!(
+            layout.size() <= isize::MAX as usize,
+            "Too large to allocate"
+        );
+
+        let new_ptr = unsafe { alloc::alloc(layout) };
+
+        let ptr = match NonNull::new(new_ptr as *mut T) {
+            Some(p) => p,
+            None => alloc::handle_alloc_error(layout),
+        };
+
+        RawVec { ptr, cap: real_cap }
+    }
+
     pub fn grow(&mut self) {
         // since when size of T is 0, capacity was setted to usize::MAX
         assert!(mem::size_of::<T>() != 0, "capacity overflow");

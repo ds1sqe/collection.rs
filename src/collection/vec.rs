@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
+use core::fmt;
 use std::{
+    fmt::{Debug, Formatter},
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
@@ -10,7 +12,6 @@ use std::{
 use super::raw::raw_iter::RawIter;
 use super::raw::raw_vec::RawVec;
 
-#[derive(Debug)]
 pub struct Vec<T> {
     buf: RawVec<T>,
     len: usize,
@@ -30,6 +31,11 @@ impl<T> Vec<T> {
             buf: RawVec::new(),
             len: 0,
         }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        let rv = RawVec::with_capacity(cap);
+        Vec { buf: rv, len: 0 }
     }
 
     fn grow(&mut self) {
@@ -191,6 +197,18 @@ impl<T> Vec<T> {
                 vec: PhantomData,
             }
         }
+    }
+}
+
+impl<T: Debug> Debug for Vec<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Vec")
+            .field("Length", &self.len)
+            .field("Capacity", &self.buf.cap)
+            .finish()
+            .unwrap();
+        f.debug_list().entries(self.iter()).finish().unwrap();
+        Ok(())
     }
 }
 
